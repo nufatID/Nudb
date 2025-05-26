@@ -1,5 +1,5 @@
 {
-  "name": "nudb-client",
+  "name": "nudb",
   "description": "A pure PHP WebSocket client for communicating with Nudb",
   "type": "library",
   "autoload": {
