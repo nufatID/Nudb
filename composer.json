@@ -1,12 +1,17 @@
 {
-  "name": "nudb",
+  "name": "nufat/nudb",
   "description": "A pure PHP WebSocket client for communicating with Nudb",
-  "type": "library",
-  "autoload": {
-    "psr-4": {
-      "Nudb\\": "src/"
-    }
-  },
+  "type": "library","autoload": {
+  "psr-4": {
+    "Nudb\\": "src/"
+  }
+},
+"autoload-dev": {
+  "psr-4": {
+    "Tests\\": "tests/"
+  }
+},
+
   "require": {
     "php": ">=7.4"
   },

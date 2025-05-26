@@ -1,19 +1,20 @@
 <?php
-
 namespace Nudb;
+
+use Exception;
+use RuntimeException;
 
 class Nudb
 {
-    private $host;
-    private $port;
-    private $path;
-    private $headers = [];
-    private $socket;
+    protected $host;
+    protected $port;
+    protected $path;
+    protected $headers = [];
+    protected $socket;
 
     public function __construct($url, $headers = [])
     {
         $parts = parse_url($url);
-
         $this->host = $parts['host'];
         $this->port = $parts['port'] ?? 80;
         $this->path = $parts['path'] ?? "/";
@@ -22,7 +23,7 @@ class Nudb
         $this->connect();
     }
 
-    private function connect()
+    protected function connect()
     {
         $key = base64_encode(random_bytes(16));
 
@@ -36,7 +37,6 @@ class Nudb
         foreach ($this->headers as $k => $v) {
             $header .= "$k: $v\r\n";
         }
-
         $header .= "\r\n";
 
         $this->socket = fsockopen($this->host, $this->port, $errno, $errstr, 5);
@@ -45,10 +45,10 @@ class Nudb
         }
 
         fwrite($this->socket, $header);
-        fread($this->socket, 2048); // Read response headers
+        fread($this->socket, 2048); // skip response headers
     }
 
-    private function sendFrame($payload)
+    protected function sendFrame(string $payload)
     {
         $frame = chr(0x81); // FIN + text
         $len = strlen($payload);
@@ -73,32 +73,63 @@ class Nudb
     }
 
     private function receiveFrame()
-    {
-        $firstByte = ord(fread($this->socket, 1));
-        $secondByte = ord(fread($this->socket, 1));
-        $masked = ($secondByte >> 7) & 1;
-        $len = $secondByte & 0x7F;
+{
+    $firstByte = fread($this->socket, 1);
 
-        if ($len === 126) {
-            $len = unpack("n", fread($this->socket, 2))[1];
-        } elseif ($len === 127) {
-            $len = unpack("J", fread($this->socket, 8))[1];
-        }
-
-        if ($masked) {
-            $mask = fread($this->socket, 4);
-            $data = fread($this->socket, $len);
-            $result = '';
-            for ($i = 0; $i < $len; $i++) {
-                $result .= $data[$i] ^ $mask[$i % 4];
-            }
-            return $result;
-        } else {
-            return fread($this->socket, $len);
-        }
+    if ($firstByte === false || strlen($firstByte) === 0) {
+        throw new \RuntimeException("WebSocket connection closed unexpectedly (no frame header).");
     }
 
-    private function sendMessage($message)
+    $firstByte = ord($firstByte);
+    $secondByte = ord(fread($this->socket, 1));
+    $masked = ($secondByte >> 7) & 1;
+    $len = $secondByte & 0x7F;
+
+    if ($len === 126) {
+        $ext = fread($this->socket, 2);
+        if (strlen($ext) < 2) {
+            throw new \RuntimeException("Invalid extended payload length (126).");
+        }
+        $len = unpack("n", $ext)[1];
+    } elseif ($len === 127) {
+        $ext = fread($this->socket, 8);
+        if (strlen($ext) < 8) {
+            throw new \RuntimeException("Invalid extended payload length (127).");
+        }
+        $len = unpack("J", $ext)[1]; // For 64-bit platforms
+    }
+
+    if ($len <= 0) {
+        throw new \RuntimeException("Invalid frame length: $len");
+    }
+
+    if ($masked) {
+        $mask = fread($this->socket, 4);
+        if (strlen($mask) < 4) {
+            throw new \RuntimeException("Failed to read masking key.");
+        }
+
+        $data = fread($this->socket, $len);
+        if (strlen($data) < $len) {
+            throw new \RuntimeException("Incomplete frame data.");
+        }
+
+        $result = '';
+        for ($i = 0; $i < $len; $i++) {
+            $result .= $data[$i] ^ $mask[$i % 4];
+        }
+
+        return $result;
+    } else {
+        $data = fread($this->socket, $len);
+        if (strlen($data) < $len) {
+            throw new \RuntimeException("Incomplete unmasked frame data.");
+        }
+        return $data;
+    }
+}
+
+    protected function sendMessage($message)
     {
         $json = json_encode($message);
         $this->sendFrame($json);
@@ -151,7 +182,7 @@ class Nudb
         return $id;
     }
 
-    private function generateId()
+    protected function generateId()
     {
         return time() . bin2hex(random_bytes(7));
     }
