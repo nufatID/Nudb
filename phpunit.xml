@@ -1,9 +1,14 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<phpunit bootstrap="vendor/autoload.php"
-         colors="true">
+<phpunit colors="true" stopOnFailure="false">
     <testsuites>
         <testsuite name="Nudb Test Suite">
             <directory>tests</directory>
         </testsuite>
     </testsuites>
+    <php>
+        <env name="WS_URL" value="wss://nudb.nufat.id"/>
+    </php>
+    <logging>
+        <log type="junit" target="build/report.junit.xml"/>
+        <log type="coverage-html" target="build/coverage"/>
+    </logging>
 </phpunit>
