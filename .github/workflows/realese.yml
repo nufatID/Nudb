@@ -34,10 +34,10 @@ jobs:
       - name: Prepare dist folder
         run: |
           mkdir -p dist
-          cp src/NudbClient.php dist/nudb-client.php
-          cp js/DB.js dist/DB.js
+          cp src/Nudb.php dist/Nudb.php
+          cp js/db.js dist/db.js
           npm install -g terser
-          terser js/DB.js -o dist/DB.min.js --compress --mangle
+          terser js/db.js -o dist/db.min.js --compress --mangle
 
       - name: Get latest tag and generate new version
         id: get_version
